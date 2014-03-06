@@ -1663,6 +1663,7 @@ void upd7810_device::handle_timers(int cycles)
 		else
 			m_adtot = 192;
 		m_adout = 0;
+		m_shdone = 0;
 		if (ANM & 0x01)
 		{
 			/* select mode */
