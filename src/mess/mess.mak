@@ -1255,6 +1255,7 @@ $(MESSOBJ)/epoch.a:             \
 $(MESSOBJ)/epson.a:             \
 	$(MESS_DRIVERS)/ex800.o     \
 	$(MESS_DRIVERS)/hx20.o      \
+	$(MESS_DRIVERS)/ap2k.o      \
 	$(MESS_DRIVERS)/lx800.o     \
 	$(MESS_MACHINE)/e05a03.o    \
 	$(MESS_MACHINE)/epson_sio.o \
@@ -2369,6 +2370,7 @@ $(MESS_DRIVERS)/aim65_40.o: $(MESS_LAYOUT)/aim65_40.lh
 $(MESS_DRIVERS)/alesis.o:   $(MESS_LAYOUT)/sr16.lh
 $(MESS_DRIVERS)/amico2k.o:  $(MESS_LAYOUT)/amico2k.lh
 $(MESS_DRIVERS)/amiga.o:    $(MESS_LAYOUT)/amiga.lh
+$(MESS_DRIVERS)/ap2k.o:     $(MESS_LAYOUT)/ap2k.lh
 $(MESS_VIDEO)/apollo.o:     $(MESS_LAYOUT)/apollo.lh
 $(MESS_VIDEO)/apollo.o:     $(MESS_LAYOUT)/apollo_15i.lh
 $(MESS_DRIVERS)/apollo.o:   $(MESS_LAYOUT)/apollo_dsp.lh

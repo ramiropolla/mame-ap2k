@@ -282,6 +282,7 @@
 /mess/drivers/scv
 
 @epson
+/mess/drivers/ap2k
 /mess/drivers/ex800
 /mess/drivers/hx20
 /mess/drivers/lx800
