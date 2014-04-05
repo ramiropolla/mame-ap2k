@@ -19,7 +19,8 @@
 #include "emu.h"
 #include "cpu/upd7810/upd7810.h"
 #include "machine/eepromser.h"
-#include "machine/e05a03.h"
+#include "machine/steppers.h"
+#include "machine/e05a30.h"
 #include "sound/beep.h"
 #include "ap2k.lh"
 
@@ -37,7 +38,11 @@ public:
 	m_eeprom(*this, "eeprom"),
 	m_beep(*this, "beeper"),
 	m_93c06_clk(0),
-	m_93c06_cs(0)
+	m_93c06_cs(0),
+	m_pf_pos_abs(200),
+	m_pf_pos_prev(0),
+	m_cr_pos_abs(200),
+	m_cr_pos_prev(0)
 	{ }
 
 	required_device<cpu_device> m_maincpu;
@@ -49,10 +54,8 @@ public:
 	DECLARE_WRITE8_MEMBER(ap2k_portb_w);
 	DECLARE_READ8_MEMBER(ap2k_portc_r);
 	DECLARE_WRITE8_MEMBER(ap2k_portc_w);
-	DECLARE_READ8_MEMBER(ap2k_centronics_data_r);
-	DECLARE_WRITE_LINE_MEMBER(ap2k_centronics_pe_w);
-	DECLARE_WRITE_LINE_MEMBER(ap2k_paperempty_led_w);
-	DECLARE_WRITE_LINE_MEMBER(ap2k_reset_w);
+
+	/* ADC */
 	DECLARE_READ8_MEMBER(ap2k_an0_r);
 	DECLARE_READ8_MEMBER(ap2k_an1_r);
 	DECLARE_READ8_MEMBER(ap2k_an2_r);
@@ -61,13 +64,24 @@ public:
 	DECLARE_READ8_MEMBER(ap2k_an5_r);
 	DECLARE_READ8_MEMBER(ap2k_an6_r);
 	DECLARE_READ8_MEMBER(ap2k_an7_r);
+
+	/* fake memory I/O to get past memory reset check */
 	DECLARE_READ8_MEMBER(ff_r);
 	DECLARE_WRITE8_MEMBER(ff_w);
+
+	/* GATE ARRAY */
+	DECLARE_WRITE8_MEMBER(ap2k_pf_stepper);
+	DECLARE_WRITE8_MEMBER(ap2k_cr_stepper);
+
 	virtual void machine_start();
 
 private:
 	int m_93c06_clk;
 	int m_93c06_cs;
+	int m_pf_pos_abs;
+	int m_pf_pos_prev;
+	int m_cr_pos_abs;
+	int m_cr_pos_prev;
 	UINT8 m_ff;
 };
 
@@ -77,9 +91,9 @@ private:
 ***************************************************************************/
 
 /*
- * PA0  R   CN7 sensor
- * PA1  R   CN6 sensor
- * PA2  R   CN4 sensor
+ * PA0  R   CN7 sensor (Home Position, HP, active low)
+ * PA1  R   CN6 sensor (Paper-End, PE, active low)
+ * PA2  R   CN4 sensor (Release, low = tractor)
  * PA3   W  Stepper motor voltage reference (these 3 pins make up one voltage)
  * PA4   W  Stepper motor voltage reference (these 3 pins make up one voltage)
  * PA5   W  Stepper motor voltage reference (these 3 pins make up one voltage)
@@ -89,7 +103,9 @@ private:
 READ8_MEMBER( ap2k_state::ap2k_porta_r )
 {
 	UINT8 result = 0;
+	UINT8 hp_sensor = m_cr_pos_abs <= 0 ? 0 : 1;
 
+	result |= hp_sensor; /* home position */
 	result |= ioport("LINEFEED")->read() << 6;
 	result |= ioport("FORMFEED")->read() << 7;
 
@@ -167,12 +183,12 @@ READ8_MEMBER( ap2k_state::ap2k_portc_r )
 
 WRITE8_MEMBER( ap2k_state::ap2k_portc_w )
 {
-//	fprintf(stdout, "%s: ap2k_PC_w(%02x): %02x\n", machine().describe_context(), offset, data);
-
 	/* ioport("serial")->write(BIT(data, 0)); */
 
 	m_93c06_clk = BIT(data, 4);
 	m_93c06_cs  = BIT(data, 5);
+
+//	fprintf(stdout, "%s: ap2k_PC_w(%02x): %02x 93c06 clk: %d cs: %d\n", machine().describe_context(), offset, data, m_93c06_clk, m_93c06_cs);
 
 	m_eeprom->clk_write(m_93c06_clk ? ASSERT_LINE : CLEAR_LINE);
 	m_eeprom->cs_write (m_93c06_cs  ? ASSERT_LINE : CLEAR_LINE);
@@ -187,33 +203,46 @@ WRITE8_MEMBER( ap2k_state::ap2k_portc_w )
     GATE ARRAY
 ***************************************************************************/
 
-READ8_MEMBER( ap2k_state::ap2k_centronics_data_r )
+WRITE8_MEMBER(ap2k_state::ap2k_pf_stepper)
 {
-	fprintf(stderr, "centronics: data read\n");
-	return 0x55;
+	int prev = m_pf_pos_prev;
+
+	stepper_update(0, data);
+	int pos = stepper_get_position(0);
+
+//	fprintf(stdout, "%s: %s(%02x); prev %d cur %d abs %d\n", machine().describe_context(), __func__, data, prev, pos, m_pf_pos_abs);
+
+	if      (prev == 95 && !pos) m_pf_pos_abs--;
+	else if (!prev && pos == 95) m_pf_pos_abs++;
+	else                         m_pf_pos_abs += prev - pos;
+	m_pf_pos_prev = pos;
 }
 
-WRITE_LINE_MEMBER( ap2k_state::ap2k_centronics_pe_w )
+WRITE8_MEMBER(ap2k_state::ap2k_cr_stepper)
 {
-	fprintf(stderr, "centronics: pe = %d\n", state);
+	int prev = m_cr_pos_prev;
+
+	stepper_update(1, data);
+	int pos = stepper_get_position(1);
+
+//	fprintf(stdout, "%s: %s(%02x); prev %d cur %d abs %d\n", machine().describe_context(), __func__, data, prev, pos, m_cr_pos_abs);
+
+	if      (prev == 95 && !pos) m_cr_pos_abs--;
+	else if (!prev && pos == 95) m_cr_pos_abs++;
+	else                         m_cr_pos_abs += prev - pos;
+	m_cr_pos_prev = pos;
 }
 
-WRITE_LINE_MEMBER( ap2k_state::ap2k_paperempty_led_w )
-{
-	fprintf(stderr, "setting paperout led: %d\n", state);
-	output_set_value("paperout_led", state);
-}
 
-WRITE_LINE_MEMBER( ap2k_state::ap2k_reset_w )
-{
-	fprintf(stderr, "cpu reset");
-	m_maincpu->reset();
-}
+/***************************************************************************
+    ADC
+***************************************************************************/
 
 static int reset_it = 1;
 READ8_MEMBER(ap2k_state::ap2k_an0_r)
 {
 	if (reset_it) {
+		/* HACK */
 		m_maincpu->set_input_line(INPUT_LINE_NMI, ASSERT_LINE);
 		reset_it = 0;
 	}
@@ -260,10 +289,31 @@ READ8_MEMBER(ap2k_state::ap2k_an7_r)
     MACHINE EMULATION
 ***************************************************************************/
 
+static const stepper_interface pf_stepper =
+{
+	STARPOINT_48STEP_REEL,
+	16,
+	24,
+	0x00,
+	0
+};
+
+static const stepper_interface cr_stepper =
+{
+	STARPOINT_48STEP_REEL,
+	16,
+	24,
+	0x00,
+	2
+};
+
 void ap2k_state::machine_start()
 {
 	m_beep->set_state(0);
 	m_beep->set_frequency(4000); /* ? */
+
+	stepper_config(machine(), 0, &pf_stepper);
+	stepper_config(machine(), 1, &cr_stepper);
 }
 
 
@@ -291,7 +341,7 @@ static ADDRESS_MAP_START( ap2k_mem, AS_PROGRAM, 8, ap2k_state )
 	AM_RANGE(0x8000, 0x9fff) AM_RAM /* 8k external RAM */
 	AM_RANGE(0xa000, 0xbfff) AM_READWRITE(ff_r, ff_w) /* UNKNOWN should be 0xff */
 //	AM_RANGE(0xa000, 0xbfff) AM_NOP /* not used */
-	AM_RANGE(0xc000, 0xdfff) AM_MIRROR(0x1ff8) AM_DEVREADWRITE("ic3b", e05a03_device, read, write)
+	AM_RANGE(0xc000, 0xdfff) AM_MIRROR(0x1ff0) AM_DEVREADWRITE("ic3b", e05a30_device, read, write)
 	AM_RANGE(0xe000, 0xfeff) AM_NOP /* not used */
 	AM_RANGE(0xff00, 0xffff) AM_RAM /* internal CPU RAM */
 ADDRESS_MAP_END
@@ -385,13 +435,10 @@ INPUT_PORTS_END
     MACHINE DRIVERS
 ***************************************************************************/
 
-static const e05a03_interface ap2k_e05a03_intf =
+static const e05a30_interface ap2k_e05a30_intf =
 {
-	DEVCB_DRIVER_MEMBER(ap2k_state, ap2k_centronics_data_r),
-	DEVCB_NULL,
-	DEVCB_DRIVER_LINE_MEMBER(ap2k_state, ap2k_paperempty_led_w),
-	DEVCB_DRIVER_LINE_MEMBER(ap2k_state, ap2k_centronics_pe_w),
-	DEVCB_DRIVER_LINE_MEMBER(ap2k_state, ap2k_reset_w)
+	DEVCB_DRIVER_MEMBER(ap2k_state, ap2k_pf_stepper),
+	DEVCB_DRIVER_MEMBER(ap2k_state, ap2k_cr_stepper),
 };
 
 static MACHINE_CONFIG_START( ap2k, ap2k_state )
@@ -416,7 +463,7 @@ static MACHINE_CONFIG_START( ap2k, ap2k_state )
 	MCFG_SOUND_ROUTE(ALL_OUTPUTS, "mono", 1.0)
 
 	/* gate array */
-	MCFG_E05A03_ADD("ic3b", ap2k_e05a03_intf)
+	MCFG_E05A30_ADD("ic3b", ap2k_e05a30_intf)
 
 	/* 256-bit eeprom */
 	MCFG_EEPROM_SERIAL_93C06_ADD("eeprom")

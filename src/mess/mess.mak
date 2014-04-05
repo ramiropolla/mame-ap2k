@@ -1258,6 +1258,7 @@ $(MESSOBJ)/epson.a:             \
 	$(MESS_DRIVERS)/ap2k.o      \
 	$(MESS_DRIVERS)/lx800.o     \
 	$(MESS_MACHINE)/e05a03.o    \
+	$(MESS_MACHINE)/e05a30.o    \
 	$(MESS_MACHINE)/epson_sio.o \
 	$(MESS_MACHINE)/pf10.o      \
 	$(MESS_MACHINE)/tf20.o      \
@@ -1265,6 +1266,7 @@ $(MESSOBJ)/epson.a:             \
 	$(MESS_DRIVERS)/px8.o       \
 	$(MESS_DRIVERS)/qx10.o      \
 	$(MESS_MACHINE)/qx10kbd.o   \
+	$(MAME_MACHINE)/steppers.o  \
 
 $(MESSOBJ)/exeltel.a:           \
 	$(MESS_DRIVERS)/exelv.o     \
