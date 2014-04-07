@@ -24,6 +24,12 @@
 #include "sound/beep.h"
 #include "ap2k.lh"
 
+//#define AP2KDEBUG
+#ifdef AP2KDEBUG
+#define LOG(...) fprintf(stderr, __VA_ARGS__)
+#else
+#define LOG(...)
+#endif
 
 /***************************************************************************
     TYPE DEFINITIONS
@@ -109,15 +115,14 @@ READ8_MEMBER( ap2k_state::ap2k_porta_r )
 	result |= ioport("LINEFEED")->read() << 6;
 	result |= ioport("FORMFEED")->read() << 7;
 
-//	fprintf(stdout, "%s: ap2k_PA_r(%02x): result %02x\n", machine().describe_context(), offset, result);
+	LOG("%s: ap2k_PA_r(%02x): result %02x\n", machine().describe_context(), offset, result);
 
 	return result;
 }
 
 WRITE8_MEMBER( ap2k_state::ap2k_porta_w )
 {
-//	UINT8 vref = BIT(data, 3) | (BIT(data, 4)<<1) | (BIT(data, 5)<<2);
-//	fprintf(stdout, "%s: ap2k_PA_w(%02x): %02x: stepper vref %d\n", machine().describe_context(), offset, data, vref);
+	LOG("%s: ap2k_PA_w(%02x): %02x: stepper vref %d\n", machine().describe_context(), offset, data, BIT(data, 3) | (BIT(data, 4)<<1) | (BIT(data, 5)<<2));
 }
 
 /*
@@ -141,7 +146,7 @@ READ8_MEMBER( ap2k_state::ap2k_portb_r )
 		result |= do_r;
 	}
 
-//	fprintf(stdout, "%s: ap2k_PB_r(%02x): result %02x\n", machine().describe_context(), offset, result);
+	LOG("%s: ap2k_PB_r(%02x): result %02x\n", machine().describe_context(), offset, result);
 
 	return result;
 }
@@ -154,7 +159,7 @@ WRITE8_MEMBER( ap2k_state::ap2k_portb_w )
 	if (m_93c06_cs)
 		m_eeprom->di_write(data_in);
 
-//	fprintf(stdout, "%s: ap2k_PB_w(%02x): %02x: 93c06 data %d\n", machine().describe_context(), offset, data, data_in);
+	LOG("%s: ap2k_PB_w(%02x): %02x: 93c06 data %d\n", machine().describe_context(), offset, data, data_in);
 }
 
 /*
@@ -171,7 +176,7 @@ READ8_MEMBER( ap2k_state::ap2k_portc_r )
 {
 	UINT8 result = 0;
 
-//	fprintf(stdout, "%s: ap2k_PC_r(%02x)\n", machine().describe_context(), offset);
+	LOG("%s: ap2k_PC_r(%02x)\n", machine().describe_context(), offset);
 
 	/* result |= ioport("serial")->read() << 1; */
 	result |= ioport("ONLINE")->read() << 3;
@@ -188,7 +193,7 @@ WRITE8_MEMBER( ap2k_state::ap2k_portc_w )
 	m_93c06_clk = BIT(data, 4);
 	m_93c06_cs  = BIT(data, 5);
 
-//	fprintf(stdout, "%s: ap2k_PC_w(%02x): %02x 93c06 clk: %d cs: %d\n", machine().describe_context(), offset, data, m_93c06_clk, m_93c06_cs);
+	LOG("%s: ap2k_PC_w(%02x): %02x 93c06 clk: %d cs: %d\n", machine().describe_context(), offset, data, m_93c06_clk, m_93c06_cs);
 
 	m_eeprom->clk_write(m_93c06_clk ? ASSERT_LINE : CLEAR_LINE);
 	m_eeprom->cs_write (m_93c06_cs  ? ASSERT_LINE : CLEAR_LINE);
@@ -210,7 +215,7 @@ WRITE8_MEMBER(ap2k_state::ap2k_pf_stepper)
 	stepper_update(0, data);
 	int pos = stepper_get_position(0);
 
-//	fprintf(stdout, "%s: %s(%02x); prev %d cur %d abs %d\n", machine().describe_context(), __func__, data, prev, pos, m_pf_pos_abs);
+	LOG("%s: %s(%02x); prev %d cur %d abs %d\n", machine().describe_context(), __func__, data, prev, pos, m_pf_pos_abs);
 
 	if      (prev == 95 && !pos) m_pf_pos_abs--;
 	else if (!prev && pos == 95) m_pf_pos_abs++;
@@ -225,7 +230,7 @@ WRITE8_MEMBER(ap2k_state::ap2k_cr_stepper)
 	stepper_update(1, data);
 	int pos = stepper_get_position(1);
 
-//	fprintf(stdout, "%s: %s(%02x); prev %d cur %d abs %d\n", machine().describe_context(), __func__, data, prev, pos, m_cr_pos_abs);
+	LOG("%s: %s(%02x); prev %d cur %d abs %d\n", machine().describe_context(), __func__, data, prev, pos, m_cr_pos_abs);
 
 	if      (prev == 95 && !pos) m_cr_pos_abs--;
 	else if (!prev && pos == 95) m_cr_pos_abs++;

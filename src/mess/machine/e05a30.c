@@ -10,6 +10,12 @@
 #include "emu.h"
 #include "e05a30.h"
 
+//#define E05A30DEBUG
+#ifdef E05A30DEBUG
+#define LOG(...) fprintf(stderr, __VA_ARGS__)
+#else
+#define LOG(...)
+#endif
 
 /*****************************************************************************
     DEVICE INTERFACE
@@ -131,7 +137,7 @@ void e05a30_device::update_cr_stepper(UINT8 data)
 
 WRITE8_MEMBER( e05a30_device::write )
 {
-//	printf("%s: e05a30_w([0xC0%02x]): %02x\n", space.machine().describe_context(), offset, data);
+	LOG("%s: e05a30_w([0xC0%02x]): %02x\n", space.machine().describe_context(), offset, data);
 
 	switch (offset) {
 	/* printhead */
@@ -148,7 +154,7 @@ READ8_MEMBER( e05a30_device::read )
 {
 	UINT8 result = 0;
 
-//	printf("%s: e05a30_r([0xC0%02x]): ", space.machine().describe_context(), offset);
+	LOG("%s: e05a30_r([0xC0%02x]): ", space.machine().describe_context(), offset);
 
 	switch (offset) {
 	/* paper feed stepper motor */
@@ -157,7 +163,7 @@ READ8_MEMBER( e05a30_device::read )
 	case 0x08: result = m_cr_stepper; break;
 	}
 
-//	printf("0x%02x\n", result);
+	LOG("0x%02x\n", result);
 
 	return result;
 }
